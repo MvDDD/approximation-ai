@@ -7,7 +7,13 @@ class NeuralNet {
 				this.act = layers.act
 				this.out = layers.out
 			} else {
-				this.nodes = layers.map(i => Array(i).fill(0).map(a => Math.random() - 0.5))
+				this.nodes = layers.map(i => 
+					Array(i)
+					.fill(0)
+					.map((a) => 
+						0
+						))
+				console.log(this.nodes)
 				this.act = act
 				this.out = out
 				this.paths = []
@@ -15,25 +21,52 @@ class NeuralNet {
 					let pathLayer = []
 					for (let start = 0; start < layers[layer]; start++) {
 						for (let end = 0; end < layers[layer + 1]; end++) {
-							pathLayer.push([start, end, Math.random() - 0.5])
+							pathLayer.push([start, end, 1/(layers[layer]*layers[layer + 1])/*layers[layer]*/])
 						}
 					}
 					this.paths.push(pathLayer)
 				}
+				console.log(this.paths)
 			}
 
 		}
 	}
 	mutatePaths(amount) {
-		this.paths = this.paths.map(layer => layer
-			.map(path => [path[0], path[1], path[2] + ((Math.random() - 0.5) * amount)])
-		)
+		if (!this.limit){
+			this.paths = this.paths.map(layer => layer
+				.map(path => [path[0], path[1], path[2] + ((Math.random() - 0.5) * amount)])
+				)
+		} else {
+			this.paths = this.paths.map(layer => layer
+				.map(path => {
+					let newWeight = path[2] + ((Math.random() - 0.5) * amount);
+				// Ensure the weights don't grow too large
+					newWeight = Math.max(Math.min(newWeight, this.max), -this.max);
+					return [path[0], path[1], newWeight];
+				})
+				);
+		}
 	}
+
+	// Mutation for nodes with limits to prevent large mutations
 	mutateNodes(amount) {
-		this.nodes = this.nodes.map(layer => layer.map(node => node + ((Math.random() - 0.5) * amount)))
+		if (!this.max){
+			this.nodes = this.nodes.map(layer => layer.map(node => node + ((Math.random() - 0.5) * amount)))
+		} else {
+			this.nodes = this.nodes.map(layer => layer.map(node => {
+				let newNode = node + ((Math.random() - 0.5) * amount);
+			// Ensure nodes don't grow too large
+				newNode = Math.max(Math.min(newNode, this.max), -this.max);
+				return newNode;
+			}));
+		}
 	}
 	clone() {
-		return new NeuralNet({ nodes: this.nodes.map(l => l.slice()), paths: this.paths.map(l => l.slice()), act:this.act, out:this.out})
+		let n = new NeuralNet({ nodes: this.nodes.map(l => l.slice()), paths: this.paths.map(l => l.slice()), act:this.act, out:this.out})
+		if (this.max){
+			n.max = this.max
+		}
+		return n
 	}
 	run(inputs) {
 		if (inputs.length !== this.nodes[0].length) {
@@ -51,13 +84,16 @@ class NeuralNet {
 	}
 
 	toString() {
-		return { nodes: this.nodes.map(l => l.slice()), paths: this.paths.map(l => l.slice()), act:this.act.toString(), out:this.out.toString()}
+		return JSON.stringify({ nodes: this.nodes.map(l => l.map(v=>parseFloat(v.toFixed(10)))), paths: this.paths.map(l => l.map(p=>{return [p[0], p[1], parseFloat(p[2].toFixed(10))]})), act:this.act.toString(), out:this.out.toString()})
 	}
 	fromString(str) {
 		let m = JSON.parse(str)
-		m.act = eval("(()=>return " + m.act + ")()")
-		m.out = eval("(()=>return " + m.out + ")()")
+		m.act = eval("(()=>{return " + m.act + "})()")
+		m.out = eval("(()=>{return " + m.out + "})()")
 		return new NeuralNet(m)
+	}
+	from(net){
+		return net.clone()
 	}
 	draw(ctx) {
 		const layerWidth = (ctx.canvas.width - 80) / (this.nodes.length + 1);
@@ -77,7 +113,7 @@ class NeuralNet {
 
 				// Draw the node
 				ctx.beginPath();
-				ctx.arc(x, y, Math.abs(this.nodes[layer][node]) * 10, 0, Math.PI * 2);
+				ctx.arc(x, y, Math.abs(this.nodes[layer][node]), 0, Math.PI * 2);
 				ctx.fillStyle = "#3498db";
 				ctx.fill();
 				ctx.stroke();

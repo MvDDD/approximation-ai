@@ -1,13 +1,13 @@
-let populationSize = 10;
-let o = 4
+let populationSize = 50;
+let o = 2
 
 function fourierSeries(inputs, octaves) {
     let out = [];
     inputs.forEach(i => {
         for (let j = 1; j < octaves; j++) {
 
-let s = Math.sin(i * j)
-let c = Math.cos(i * j)
+        let s = i * Math.sin(j)
+        let c = i * Math.cos(j)
             out.push(s,c,s*c,s/(c+0.00001));
         }
     });
@@ -15,14 +15,14 @@ let c = Math.cos(i * j)
     out.push(Math.cos(inputs[0])); 
     out.push(Math.sin(inputs[1])); // Emphasize y-direction (vertical)
     out.push(Math.cos(inputs[1]));
-    return [1, ...out];
+    return [...out];
 }
 
 let net = new NeuralNet(
     [
         fourierSeries([0, 0], o).length,
         5,
-5,
+        10,
         1,
         
     ],
@@ -50,12 +50,12 @@ imgI.onload = () => {
     train(); // Uncommented train function call
 	}catch(e){console.log(e)}
 }
-
+let midloss = 0
 async function train() {
     let population = Array.from({ length: populationSize }, () => { // Changed to Array.from for better readability
         let n = net.clone(); // Fixed to invoke clone method
-        n.mutateNodes(loss);
-        n.mutatePaths(loss);
+        n.mutateNodes(midloss);
+        n.mutatePaths(midloss);
         return { n, p: 0 };
     });
 
@@ -78,7 +78,7 @@ async function train() {
     population = population.sort((a, b) => a.p - b.p)[0]; // Get the best individual
     loss = (mloss/(imgI.width*imgI.height))**2
     if (population.p < mloss) {
-    	loss = (population.p/(imgI.width*imgI.height))**2
+    	midloss = (population.p/(imgI.width*imgI.height))**2
         net = population.n.clone(); // Clone best individual into the main network
     }
     draw();
