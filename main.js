@@ -11,7 +11,10 @@ let c = Math.cos(i * j)
             out.push(s,c,s*c,s/(c+0.00001));
         }
     });
-    console.log(out)
+    out.push(Math.sin(inputs[0])); // Emphasize x-direction (horizontal)
+    out.push(Math.cos(inputs[0])); 
+    out.push(Math.sin(inputs[1])); // Emphasize y-direction (vertical)
+    out.push(Math.cos(inputs[1]));
     return [1, ...out];
 }
 
