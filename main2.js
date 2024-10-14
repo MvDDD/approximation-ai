@@ -1,8 +1,18 @@
-const populationSize = 50;
+const populationSize = 40;
 let generations = Infinity; // Number of generations to evolve
-const octaves = 20
+const octaves = 30
+
+let seed = Date.now()
+function random(){
+    seed ^= seed << 5
+    seed ^= seed >> 4
+    seed ^= seed << 7
+    return (seed%100000000)/100000000
+}
 const canvas = document.getElementById('canvas');
 const mcanvas = document.getElementById('mcanvas')
+const ocanvas = document.getElementById('out')
+const ctx3 = ocanvas.getContext("2d")
 const ctx2 = mcanvas.getContext("2d")
 const ctx = canvas.getContext('2d');
 
@@ -17,8 +27,8 @@ const netconfig = [
     5,
     5,
     5,
-    5,
     5,*/
+    5,
     5,
     5,
     5,
@@ -27,20 +37,21 @@ const netconfig = [
 
 
 function genFunc(x){
-    return Math.max(Math.min(Math.tan(x/4), 0.9), -0.9)
+    return Math.cos(x)/2
 }
 
 function mrate(x){
-    return Math.max(x / 120, 0.0001)
+    return ((1+(x/200))**2)-1 || 0.0000001
 }
+
 function calcloss(output, target) {
-    return Math.pow(output - target, 2);
+    return Math.pow(Math.abs(output - target), 1.5);
 }
 
 function generateData() {
     const data = [];
-    for (let i = 0; i < 100; i+=0.5) {
-        let x = Math.random() * Math.PI * 2 - Math.PI; // Random x in range [-π, π]
+    for (let i = 0; i < 100; i+=1) {
+        let x = (i/100) * Math.PI * 2 - Math.PI; // Random x in range [-π, π]
         let y = genFunc(x); // Target output for the formula (y = sin(x))
         data.push({ x, y });
     }
@@ -50,11 +61,12 @@ function generateData() {
 function fourierSeries(inputs, octaves) {
     let out = [];
     inputs.forEach(i => {
-        for (let j = 1; j <= octaves; j++) {
+        for (let j = 0; j <= octaves; j++) {
             //out.push(i * (2 ** j))
-
-            out.push(i * Math.sin(j)); // Sine component
-            out.push(i * Math.cos(j)); // Cosine component
+            //out.push(i * Math.sqrt(j))
+            out.push(j * i)
+            out.push(j * Math.sin(i*j)); // Sine component
+            out.push(j * Math.cos(i*j)); // Cosine component
             
         }
     });
@@ -65,8 +77,9 @@ function fourierSeries(inputs, octaves) {
 
 let net = new NeuralNet(
     netconfig, // Input size, hidden layer size, output size
-    x => Math.max(0.1*x, x), // ReLU activation function
-    a => Math.tanh(a) // Output activation function (squashing output between -1 and 1)
+    x => Math.max(0.6*x, x), // ReLU activation function
+    a => Math.tanh(a), // Output activation function (squashing output between -1 and 1)
+    random
     );
 net.max = 20
 
@@ -96,15 +109,15 @@ async function evolveFormula() {
 
     // Sort population by fitness (lower error is better)
     population.sort((a, b) => a.p - b.p);
-
     // Keep the best performing network
     let bestNet = population[0];
+    loss = bestNet.p
 
     // Mutate the population for the next generation
     population = population.map(() => {
         let n = bestNet.n.clone();
-        n.mutateNodes(mrate(bestNet.p)); // Mutate nodes slightly (with fallback mutation strength)
-        n.mutatePaths(mrate(bestNet.p)); // Mutate paths slightly
+        n.mutateNodes(mrate(loss)); // Mutate nodes slightly (with fallback mutation strength)
+        n.mutatePaths(mrate(loss)); // Mutate paths slightly
         return { n, p: 0 };
     });
     //population.pop()
@@ -122,23 +135,39 @@ async function evolveFormula() {
 }
 
 // Function to draw the actual sine curve and the network's approximation
+function circle(ctx, sin, centerX, centerY, radius, segments = 100) {
+    ctx.beginPath();  // Start drawing the path
+
+    for (let i = 0; i <= segments; i++) {
+        // Calculate angle for current segment
+        let angle = ((i / segments) * 2 * Math.PI)%(2*Math.PI)
+        // Use sin for both x and y, with an offset for cosine
+        let x = centerX + radius * sin((angle + Math.PI / 2)%(2*Math.PI));  // cos(θ) = sin(θ + π/2)
+        let y = centerY + radius * sin(angle%(2*Math.PI));
+
+        // Move to the first point or draw a line to the next point
+        if (i === 0) {
+            ctx.moveTo(x, y);  // Move to the start of the circle
+        } else {
+            ctx.lineTo(x, y);  // Draw a line to the calculated point
+        }
+    }
+
+    //ctx.closePath();  // Close the path to form a circle
+    ctx.stroke();     // Stroke the circle (draw outline)
+}
+
+
 function drawCurve(network, generation) {
-    let normalised = new NeuralNet().fromString(network.toString());
-    let maxNode = Math.max(...normalised.nodes.flat());
-    let maxPath = Math.max(...normalised.paths.flat(2).map(p => p[2]));
-
-    // Prevent division by zero
-    maxNode = maxNode;
-    maxPath = maxPath;
-
-    normalised.nodes = normalised.nodes.map(l => l.map(n => (n / maxNode) * 20));
-    normalised.paths.forEach(layer => layer.forEach(path => path[2] = (path[2] / maxPath) * 20));
-
     ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
     ctx2.clearRect(0, 0, mcanvas.width, mcanvas.height); // Clear the canvas
-
+    ctx3.clearRect(0, 0, ocanvas.width, ocanvas.height); // Clear the canvas
+    ctx3.strokeStyle = "blue"
+    circle(ctx3,(x)=>genFunc(x/2)*2, 500, 500, 480, 100)
+    ctx3.strokeStyle = "red"
+    circle(ctx3,(a)=>network.run(fourierSeries([a/2], octaves))[0]*2, 500, 500, 480, 100)
     // If the network has a 'draw' method to visualize its structure, call it
-    normalised.draw(ctx2);
+    network.draw(ctx2);
 
     // Draw the true sine function (in blue)
     ctx.beginPath();
@@ -177,6 +206,7 @@ function drawCurve(network, generation) {
     ctx.fillStyle = 'black';
     ctx.font = '20px Arial';
     ctx.fillText(`Generation: ${generation}`, 10, 30);
+    document.getElementById("loss").value = loss
     document.getElementById("outmodel").value = network.toString()
 }
 

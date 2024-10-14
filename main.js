@@ -1,122 +1,133 @@
-let populationSize = 50;
-let o = 2
+let populationSize = 10; // Size of the population for the genetic algorithm
+let o = 1; // Number of octaves for the Fourier series
 
+function calcLoss(x) {
+    return x
+}
+
+// Fourier series function using sine and cosine transformations
 function fourierSeries(inputs, octaves) {
     let out = [];
     inputs.forEach(i => {
-        for (let j = 1; j < octaves; j++) {
-
-        let s = i * Math.sin(j)
-        let c = i * Math.cos(j)
-            out.push(s,c,s*c,s/(c+0.00001));
+        for (let j = 1; j <= octaves; j++) { // Fixed to include all octaves, inclusive
+            inputs.forEach(k => {
+            out.push(
+            Math.sin((j *  i)+1),
+            Math.cos((j *  i)+1),
+            //Math.tanh(j * i)
+            ); // Add sine and cosine values to output
+            })
         }
     });
-    out.push(Math.sin(inputs[0])); // Emphasize x-direction (horizontal)
-    out.push(Math.cos(inputs[0])); 
-    out.push(Math.sin(inputs[1])); // Emphasize y-direction (vertical)
-    out.push(Math.cos(inputs[1]));
-    return [...out];
+    return [...out, 1];
 }
 
+// Neural network configuration
 let net = new NeuralNet(
     [
-        fourierSeries([0, 0], o).length,
+        fourierSeries([0, 0], o).length, // Input size from Fourier series
         5,
-        10,
-        1,
-        
+        3, // Output layer (RGB values have 3 channels)
     ],
-    (a) => (Math.max(0.1 * a, a)), // Changed from 0.1 * a to Math.max(0.1 * a, a) for clarity
-    (a) => (Math.tanh(a))
+    (a) => Math.max(0.1 * a, a), // Leaky ReLU activation function
+    (a) => Math.tanh(a) // Hyperbolic tangent activation function
 );
 
 let imgI = new Image();
-imgI.src = "./img1.png";
-let dataI = [];
+imgI.src = "download.png"
+
+let dataI = []; // Array to store image pixel data
 let ctx;
-let loss = 1
+let loss = 1;
 
 imgI.onload = () => {
-	try{
-    let canvas = document.getElementById("canvas");
-    canvas.width = imgI.width;
-    canvas.height = imgI.height;
-    ctx = canvas.getContext("2d");
-    ctx.drawImage(imgI, 0, 0);
-    let imgData = ctx.getImageData(0, 0, imgI.width, imgI.height); // Changed from img4 to imgI
-    for (let i = 0; i < imgData.data.length; i += 4) { // Fixed to iterate over imgData.data
-        dataI.push(imgData.data[i] > 128 ? 1 : -1); // Accessing imgData.data for pixel values
+    try {
+        let canvas = document.getElementById("canvas");
+        canvas.width = imgI.width;
+        canvas.height = imgI.height;
+        ctx = canvas.getContext("2d");
+        ctx.drawImage(imgI, 0, 0);
+
+        let imgData = ctx.getImageData(0, 0, imgI.width, imgI.height); 
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            // Normalize the RGB values to range [-π, π]
+            dataI.push([
+                (imgData.data[i] / 255) * Math.PI * 2 - Math.PI,
+                (imgData.data[i + 1] / 255) * Math.PI * 2 - Math.PI,
+                (imgData.data[i + 2] / 255) * Math.PI * 2 - Math.PI,
+            ]);
+        }
+        train(); // Start training after image is loaded
+    } catch (e) {
+        console.error(e); // Corrected console logging
     }
-    train(); // Uncommented train function call
-	}catch(e){console.log(e)}
 }
-let midloss = 0
+
+let midloss = 1;
+
+// Training function
 async function train() {
-    let population = Array.from({ length: populationSize }, () => { // Changed to Array.from for better readability
-        let n = net.clone(); // Fixed to invoke clone method
-        n.mutateNodes(midloss);
-        n.mutatePaths(midloss);
-        return { n, p: 0 };
+    console.log("frame");
+
+    let population = Array.from({ length: populationSize }, () => {
+        let n = net.clone(); // Clone the neural network for mutation
+        n.mutateNodes(midloss || 0.001); // Mutate nodes
+        n.mutatePaths(midloss || 0.001); // Mutate connections
+        return { n, p: 0 }; // p is the fitness score (lower is better)
     });
 
     let mloss = 0;
+
+    // Loop over image pixels
     for (let x = 0; x < imgI.width; x++) {
-        console.log(x);
         for (let y = 0; y < imgI.height; y++) {
-            const mappedX = (x / imgI.width) * (2 * Math.PI) -  Math.PI;
-            const mappedY = (y / imgI.height) * (2 * Math.PI) +  Math.PI;
-            let inputs = fourierSeries([mappedX, mappedY], o);
-            let expected = dataI[y * imgI.width + x];
+            const mappedX = (x / imgI.width) * (2 * Math.PI) - Math.PI;
+            const mappedY = (y / imgI.height) * (2 * Math.PI) - Math.PI;
+            let inputs = fourierSeries([mappedX, mappedY], o); // Fourier-transformed inputs
+            let expected = dataI[y * imgI.width + x]; // Expected pixel values
+
             population.forEach(p => {
-                let out = p.n.run(inputs)[0];
-                p.p += Math.abs(out - expected); // Accumulate error for each individual
+                let out = p.n.run(inputs); // Network output for current pixel
+                p.p += Math.abs(out[0] - expected[0]) + Math.abs(out[1] - expected[1]) + Math.abs(out[2] - expected[2]) // Calculate fitness (error)
             });
-            mloss += Math.abs(net.run(inputs)[0] - expected); // Total loss for current pixel
         }
     }
 
-    population = population.sort((a, b) => a.p - b.p)[0]; // Get the best individual
-    loss = (mloss/(imgI.width*imgI.height))**2
-    if (population.p < mloss) {
-    	midloss = (population.p/(imgI.width*imgI.height))**2
-        net = population.n.clone(); // Clone best individual into the main network
-    }
-    draw();
-    requestAnimationFrame(train); // Request next animation frame for training
+    // Select the best-performing network
+    let bestIndividual = population.sort((a, b) => a.p - b.p)[0];
+    midloss = calcLoss(bestIndividual.p / (imgI.width * imgI.height)); // Fix midloss calculation
+    net = bestIndividual.n.clone(); // Set the best network as the main network
+
+    draw(); // Draw the new frame
+    requestAnimationFrame(train); // Continue training after a delay
 }
 
-function mapColor(t) {
-    t = Math.max(-1, Math.min(1, t)); // Clamping the value of t between -1 and 1
-    let r, g, b;
+// Map normalized values [-1, 1] to RGB color values [0, 255]
+// Map normalized values [-1, 1] to RGB color values [0, 255]
+function mapColor(r, g, b) {
+    r = Math.max(-1, Math.min(1, r)); // Ensure value is in the range [-1, 1]
+    g = Math.max(-1, Math.min(1, g));
+    b = Math.max(-1, Math.min(1, b));
 
-    if (t < 0) {
-        const factor = (t + 1) / 1; 
-        r = Math.floor(0 + factor * (255 - 0)); 
-        g = Math.floor(0 + factor * (255 - 0)); 
-        b = 0; 
-    } else if (t < 0.5) {
-        const factor = (t - 0) / 0.5; 
-        r = Math.floor(255 + factor * (128 - 255)); 
-        g = Math.floor(255 + factor * (0 - 255)); 
-        b = Math.floor(0 + factor * (128 - 0)); 
-    } else {
-        const factor = (t - 0.5) / 0.5; 
-        r = Math.floor(128 + factor * (255 - 128)); 
-        g = Math.floor(0 + factor * (255 - 0)); 
-        b = Math.floor(128 + factor * (255 - 128)); 
-    }
+    r = (r + 1) / 2; // Scale to [0, 1]
+    g = (g + 1) / 2;
+    b = (b + 1) / 2;
 
-    return `rgb(${r}, ${g}, ${b})`;
+    return `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
 }
 
+// Neural network's drawing function
 async function draw() {
+    document.getElementById("net").value = net.toString();
+    net.draw(document.getElementById("mcanvas").getContext("2d"))
     for (let x = 0; x < imgI.width; x++) {
         for (let y = 0; y < imgI.height; y++) {
-            const mappedX = (x / imgI.width) * (4 * Math.PI) - 2 * Math.PI;
-            const mappedY = (y / imgI.height) * (4 * Math.PI) + 2 * Math.PI;
+            const mappedX = (x / imgI.width) * (2 * Math.PI) - Math.PI;
+            const mappedY = (y / imgI.height) * (2 * Math.PI) - Math.PI;
             let inputs = fourierSeries([mappedX, mappedY], o);
-            ctx.fillStyle = mapColor(net.run(inputs)[0]);
-            ctx.fillRect(x, y, 1, 1);
+            let outputColor = net.run(inputs);
+            ctx.fillStyle = mapColor(...outputColor); 
+            ctx.fillRect(x, y, 1, 1); 
         }
     }
 }
