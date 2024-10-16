@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>HTML</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div>
+    <canvas id="canvas" width="1000" height="1000"></canvas>
+   <canvas id="mcanvas" width="1000" height="1000"></canvas>
+   <canvas id="out" width="1000" height="1000"></canvas>
+ </div>
+ <input type="text" id="loss">
+ <textarea id="outmodel"></textarea><button onclick="(()=>{generations = 0;})()">stop</button>
+ <script src="neural.js"></script>
+ <script src="function.js"></script>
+</body>
+</html>

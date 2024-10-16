@@ -46,7 +46,7 @@ class NeuralNet {
 				})
 				);
 		}
-		console.log(this.paths)
+		//console.log(this.paths)
 	}
 
 	// Mutation for nodes with limits to prevent large mutations
@@ -61,10 +61,10 @@ class NeuralNet {
 				return newNode;
 			}));
 		}
-		console.log(this.nodes)
+		//console.log(this.nodes)
 	}
 	clone() {
-		let n = new NeuralNet({ nodes: this.nodes.map(l => l.slice()), paths: this.paths.map(l => l.map(l=>l.slice())), act:this.act, out:this.out})
+		let n = new NeuralNet({ nodes: this.nodes.map(l => l.slice()), paths: this.paths.map(l => l.map(p=>p.slice())), act:this.act, out:this.out})
 		if (this.max){
 			n.max = this.max
 		}
