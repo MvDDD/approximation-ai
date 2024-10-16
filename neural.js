@@ -147,3 +147,8 @@ class NeuralNet {
 		}
 	}
 }
+
+
+if (typeof self == "undefined"){
+	module.exports = {NeuralNet}
+}
