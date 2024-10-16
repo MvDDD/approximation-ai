@@ -1,6 +1,9 @@
 let { NeuralNet } = require("./neural.js")
 let fs = require("fs")
+let GPU = (()=>{try{return require("gpu.js")}catch{return require("./gpu.js")}})();
+
 let mnist = JSON.parse(fs.readFileSync("./mnist_DATA_SMALL.json"))
+
 
 console.clear()
 
