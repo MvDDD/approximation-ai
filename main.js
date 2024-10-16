@@ -1,5 +1,6 @@
 let { NeuralNet } = require("./neural.js")
-let mnist = JSON.parse(require("fs").readFileSync("./mnist_DATA_SMALL.json"))
+let fs = require("fs")
+let mnist = JSON.parse(fs.readFileSync("./mnist_DATA_SMALL.json"))
 
 console.clear()
 
@@ -20,7 +21,7 @@ let net = new NeuralNet(
 	(a) => Math.max(a, 0),
 	(a) => Math.tanh(a),
 	random = Math.random
-)
+).fromString(fs.readFileSync("./model.json"))
 
 let errRateDivider = 200
 let errRate = mnist.length
