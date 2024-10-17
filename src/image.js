@@ -34,7 +34,7 @@ let net = new NeuralNet(
 );
 
 let imgI = new Image();
-imgI.src = "download.png"
+imgI.src = "./src/download.png"
 
 let dataI = []; // Array to store image pixel data
 let ctx;
@@ -113,13 +113,15 @@ function mapColor(r, g, b) {
     g = (g + 1) / 2;
     b = (b + 1) / 2;
 
-    return `rgb(${r * 255}, ${g * 255}, ${b * 255})`;
+    return `rgba(${r * 255}, ${g * 255}, ${b * 255}, 0.1)`;
 }
 
 // Neural network's drawing function
 async function draw() {
     document.getElementById("net").value = net.toString();
+    document.getElementById("mcanvas").getContext("2d").clearRect(0, 0, document.getElementById("mcanvas").width, document.getElementById("mcanvas").height)
     net.draw(document.getElementById("mcanvas").getContext("2d"))
+
     for (let x = 0; x < imgI.width; x++) {
         for (let y = 0; y < imgI.height; y++) {
             const mappedX = (x / imgI.width) * (2 * Math.PI) - Math.PI;
