@@ -1,6 +1,6 @@
 const populationSize = 40;
 let generations = Infinity; // Number of generations to evolve
-const octaves = 80
+const octaves = 10
 
 let seed = Date.now()
 function random(){
@@ -50,10 +50,10 @@ function calcloss(output, target) {
 
 function generateData() {
     const data = [];
-    for (let i = 0; i < 100; i+=1) {
+    for (let i = 0; i < 100; i+=15) {
         let x = (i/100) * Math.PI * 2 - Math.PI; // Random x in range [-π, π]
         let y = genFunc(x); // Target output for the formula (y = sin(x))
-        data.push({ x, y });
+        data.push({ x, y:genFunc(x) });
     }
     return data;
 }
@@ -65,8 +65,8 @@ function fourierSeries(inputs, octaves) {
             //out.push(i * (2 ** j))
             //out.push(i * Math.sqrt(j))
             out.push(j * i)
-            //out.push(j * Math.sin(i*j)); // Sine component
-            //out.push(j * Math.cos(i*j)); // Cosine component
+            out.push(j * Math.sin(i*j)); // Sine component
+            out.push(j * Math.cos(i*j)); // Cosine component
             
         }
     });
